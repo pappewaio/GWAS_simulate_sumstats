@@ -1,4 +1,5 @@
 ---
+title: Simulate GWAS summary
 output:
   html_document:
     keep_md: true
@@ -16,7 +17,17 @@ awk '{out="";for(i=1;i<=125;i++){out=out" "$i}; print out}' hapmap3_r3_b36_chr22
 ```
 
 Load important R packages, set paths and make output directory
-```{r, echo=FALSE}
+```{r, eval=FALSE}
+## From within R
+# Use data.table to read and and write fast using fread and fwrite
+library(data.table)
+# Use S4Vectors for a more advanced and efficient infrastructure
+library(S4Vectors)
+# Use SummarizedExperiment to create a container structure using the S4Vector framework
+library(SummarizedExperiment)
+```
+
+```{r}
 # Set file used as reference for the allele frequencies
 afsource <- "data/hapmap3_r3_b36_chr22.raw.shrunk"
 # Set folder for generated data, and make it if it doesn't already exist
@@ -26,17 +37,30 @@ system(paste("mkdir -p ", outfold,sep=""))
 
 To simulate gwas summary statistics we use existing allele frequencies from a real dataset, and in this example the real data come from the public hapmap3 data. In this tutorial, we have tried to use speed and memory efficient code to allow the simulation to scale better in case we decide toe.g., use all 80 million SNPs from the 1000 genomes project. To quickly import the data we use ```fread()``` and then to allow for better memory management, and indirectly makes processing faster as well, we use the ```SummarizedExperiments``` object class to store data and results.
 
-```{r, echo=FALSE}
+```{r}
 # Select all SNPs in the file
 dataraw <- fread(afsource)
 # prepare genotype part of SE object, snps as rows and individuals as columns
 df <- DataFrame(dataraw)
+
+# pick out info on rsid and effect allele
+header <- colnames(df)[7:ncol(df)]
+strspl <- tstrsplit(header, split="_")
+rsid <- strspl[[1]]
+effectAllele <- strspl[[2]]
+
+#pick out the actual genotype information
 geno <- t(as.matrix(df[,7:ncol(df)]))
+rownames(geno) <- NULL
 colnames(geno) <- df[,"FID"]
 pheno <- df[,1:6]
 rownames(pheno) <- df[,"FID"]
+
 # Use chr, pos info here (but make up genomic ranges as they are missing in this dataset)
 gr <- GRanges(seqnames=1:nrow(geno), ranges=IRanges(start=1:nrow(geno), end=1:nrow(geno)))
+mcols(gr)["RSID"] <- rsid
+mcols(gr)["effectAllele"] <- effectAllele
+
 # Create a SummarizedExperiments object, which uses copy by replacement (= gentle to memory, and faster)
 se <- SummarizedExperiment(assays=SimpleList(geno=geno),
                           rowData=NULL, rowRanges=gr,
@@ -44,7 +68,7 @@ se <- SummarizedExperiment(assays=SimpleList(geno=geno),
                           metadata=list())
 
 # remove initial data formatting to save space, keeping only the se
-rm(dataraw, df, geno, pheno, gr)
+rm(dataraw, df, geno, pheno, gr, header, strspl, rsid, effectAllele)
 
 # replace all NAs with zeros
 assays(se)[["geno"]][is.na(assays(se)[["geno"]])] <- 0
@@ -110,14 +134,15 @@ for (i in 1:nrow(se2)){
 rowData(se2)[["N"]] <- rep(ncol(se2), nrow(se2))
 rowData(se2)[["AFREQ"]] <- rowSums(assays(se2)[["geno"]])/(2*ncol(se2))
 
-#write sumstats to file (skip true beta)
-write.table(rowData(se2)[,-1], "out/linear_testStats.txt", sep="\t", quote=FALSE)
+#write simulated sumstats to file (skip true beta)
+rowData(se2)[["B.true"]] <- NULL
+write.table(rowData(se2), "out/linear_testStats.txt", sep="\t", quote=FALSE, row.names=FALSE)
 ```
 
 ## Generate summary statistics - Logistic GWAS
 
 ```{r}
-#re-initialize se2
+#re-initialize se2 stats
 se2 <- se[1:100]
 
 rowData(se2)[["B"]] <- NA
@@ -151,7 +176,8 @@ rowData(se2)[["Ncont"]] <- rep(table(colData(se2)[,"b.pheno"])[1], nrow(se2))
 rowData(se2)[["AFREQ"]] <- rowSums(assays(se2)[["geno"]])/(2*ncol(se2))
 
 #write sumstats to file (skip true beta)
-write.table(rowData(se2)[,-1], "out/logistic_testStats.txt", sep="\t", quote=FALSE)
+rowData(se2)[["B.true"]] <- NULL
+write.table(rowData(se2), "out/logistic_testStats.txt", sep="\t", quote=FALSE, row.names=FALSE)
 
 ```
 
