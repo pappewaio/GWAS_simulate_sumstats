@@ -35,7 +35,7 @@ outfold <- "out"
 system(paste("mkdir -p ", outfold,sep=""))
 ```
 
-To simulate gwas summary statistics we use existing allele frequencies from a real dataset, and in this example the real data come from the public hapmap3 data. In this tutorial, we have tried to use speed and memory efficient code to allow the simulation to scale better in case we decide toe.g., use all 80 million SNPs from the 1000 genomes project. To quickly import the data we use ```fread()``` and then to allow for better memory management, and indirectly makes processing faster as well, we use the ```SummarizedExperiments``` object class to store data and results.
+To simulate gwas summary statistics we use existing allele frequencies from a real dataset, and in this example the real data come from the public hapmap3 data. In this tutorial, we have tried to use speed and memory efficient code to allow the simulation to scale better in case we decide for example to use all 80 million SNPs from the 1000 genomes project. To quickly import the data we use ```fread()``` and then to allow for better memory management, and indirectly makes processing faster as well, we use the ```SummarizedExperiments``` object class to store data and results.
 
 ```{r}
 # Select all SNPs in the file
