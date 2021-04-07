@@ -20,3 +20,29 @@ for chr in {1..22} X; do
 done
 
 
+# Make plink ped and map file to mimic the source, so that we can use it in out example data
+# make a list of snps to subset
+for chr in {1..22} X; do
+  echo "chr ${chr} done"
+  cat hapmap3_r3_b36_fwd.consensus.qc.poly.map | awk -vchr=${chr} -vOFS="\t" '{if(chr==$1){print $2}}' | head -n200 > source_example_data/to_extract_${chr}
+done
+
+for chr in {1..22} X; do \
+ ( \
+ echo "$chr starting ..."; \
+  plink --chr ${chr} --ped hapmap3_r3_b36_fwd.consensus.qc.poly.ped --map hapmap3_r3_b36_fwd.consensus.qc.poly.map --extract source_example_data/to_extract_${chr} --make-bed --out source_example_data/test_${chr}
+ echo "$chr done ..."; \
+ ) & \
+done
+
+# Merge files 
+rm source_example_data/test_merge_list
+for chr in {1..22} X; do
+  echo "source_example_data/test_${chr}" >> source_example_data/test_merge_list
+done
+source_example_data/test_${chr} --merge-list source_example_data/test_merge_list --out source_example_data/test_merge
+
+# Convert merged file back to ped map
+plink --bfile source_example_data/test_${chr} --recode --out source_example_data/test_${chr}
+
+
