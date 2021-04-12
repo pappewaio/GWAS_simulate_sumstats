@@ -24,12 +24,14 @@ nextflow run main.nf \
 All intermediate files are saved in the output folder, and the final result is located in 'out/nf-data-gen/concatenate_chunks'. For the original source see:
 
 ```
-## Download from web the whole set of variants from dbSNP
+## Download from web the whole set of variants from dbSNP (660146231 variants)
 wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b151_GRCh38p7/VCF/All_20180418.vcf
 
-## Download from web the whole set of variants from HapMap3
+## Download from web the whole set of variants from HapMap3 (1457897 variants)
 wget -r --no-parent https://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/hapmap3_r3/plink_format/*
 ```
+
+As you see, the maximum number of possible simulated unique variants based on hapmap will be 1,457,897 variants. A future task is to build out the simulation framework to use 1000 Genomes data instead, to increase this number furhter.
 
 
 _There is a markdown document generatd from rmarkdown which describes more in depth how the simulated data is created, see the tutorial folder._
