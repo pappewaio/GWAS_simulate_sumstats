@@ -11,7 +11,7 @@ There is a script to produce gwas stats from hapmap data, see below for example 
 Rscript scripts/gwas_stat_simulation_script.R --afsource data/hapmap3_r3_b36_chr22.raw.shrunk --outlin out/linear_testStats.txt --outlog out/logistic_testStats.txt
 ```
 
-To create a complete GWAS simulated dataset using stats from hapmap and annotation from dbsnp, please use the workflow executed by this command
+To create a complete GWAS simulated dataset using stats from hapmap and annotation from dbsnp, please use the workflow executed by this command (takes about 14 minutes to run for these ~4000 variants)
 ```
 # Run the exampled data that mimics the source (splits = nr. of cpus)
 nextflow run main.nf \
