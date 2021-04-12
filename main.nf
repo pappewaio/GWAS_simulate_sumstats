@@ -4,14 +4,13 @@ process generate_random_source_file {
     publishDir "${params.out}/generate_random_source_file", mode: 'rellink', overwrite: true
 
     output:
-      path 'random_seed_file_source'
+      path('random_seed_file_source')
     script:
       seedval=1337
       """
-      openssl enc -aes-256-ctr -pass pass:"$seedval" -nosalt </dev/zero 2>/dev/null | head -10000 > random_seed_file_source
+      generate_random_source_file.sh > random_seed_file_source
       """
 }
-
 
 process split_dbsnp_into_smaller_chunks {
     publishDir "${params.out}/split_of_chunks", mode: 'rellink', overwrite: true
@@ -40,7 +39,7 @@ process select_random_snps {
       tuple val(chunkname), path(chunk_random)
     script:
       """
-      sort -R --random-source=${random_seed_file_source} ${chunk} | head -n ${rsize} > chunk_random
+      select_random_snps.sh ${chunk} ${random_seed_file_source} ${rsize} > chunk_random
       """
 }
 
