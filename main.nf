@@ -45,8 +45,7 @@ process split_rows_multiallelics {
 process select_random_snps {
     publishDir "${params.out}/select_random_snps", mode: 'rellink', overwrite: true
     input:
-      tuple val(chunkname), path(chunk), path(random_seed_file_source)
-      val(rsize)
+      tuple val(chunkname), path(chunk), path(random_seed_file_source), val(rsize)
     output:
       tuple val(chunkname), path("${chunkname}_random"), emit: chunk
       path("${chunkname}_rsize"), emit: size
@@ -72,19 +71,15 @@ process convert_to_bfile_format {
 
 process create_split_selection {
     publishDir "${params.out}/create_split_selection", mode: 'rellink', overwrite: true
-   publishDir "${params.out}/convert_to_bfile_format", mode: 'rellink', overwrite: true
     input:
       tuple path('hm3_b36.bed'), path('hm3_b36.bim'), path('hm3_b36.fam')
       val hapmapsplits
     output:
-      path 'chunk_*', emit: rsid_chunk
-      env(size), emit: size_chunk
+      path 'chunk_*', emit: chunk
     script:
       """
       awk '{print \$2}' hm3_b36.bim > ids_to_split
-      split -dn ${hapmapsplits} ids_to_split chunk_
-      size=\$(wc -l chunk_00 | awk '{print \$1}')
-      
+      split -d -n l/${hapmapsplits} ids_to_split chunk_
       """
 }
 
@@ -93,10 +88,14 @@ process extract_and_transform_hapmap_genotypes {
     input:
       tuple path('hm3_b36.bed'), path('hm3_b36.bim'), path('hm3_b36.fam'), val(id), path('to_extract')
     output:
-      tuple val(id), path('chunk.raw')
+      tuple val(id), path("${id}_chunk.raw"), emit: chunk
+      tuple val(id), env(size), emit: size
+      path("${id}_size"), emit: size_file
     script:
       """
-      plink2 --bfile hm3_b36 --extract to_extract --export A --out chunk
+      plink2 --bfile hm3_b36 --extract to_extract --export A --out ${id}_chunk
+      wc -l to_extract | awk '{print \$1}' > ${id}_size
+      size="\$(cat ${id}_size)"
       """
 }
 
@@ -184,7 +183,7 @@ workflow {
   // Run hapmap part
   convert_to_bfile_format(pedfile, mapfile)
   create_split_selection(convert_to_bfile_format.out, splits)
-  create_split_selection.out.rsid_chunk
+  create_split_selection.out.chunk
     .map { file -> tuple(file.baseName, file) }
     .transpose()
     .set { create_split_selection2 }
@@ -194,7 +193,7 @@ workflow {
   extract_and_transform_hapmap_genotypes(ready_to_split_hapmap)
 
   // Simulate the GWAS from hapmap data
-  simulate_gwas_stats_from_hapmap_genotypes(extract_and_transform_hapmap_genotypes.out, Rsimscript)
+  simulate_gwas_stats_from_hapmap_genotypes(extract_and_transform_hapmap_genotypes.out.chunk, Rsimscript)
   
   // Run dbsnp part (creating an equally sized set of chunks)
   split_dbsnp_into_smaller_chunks(dbsnp151_channel, splits)
@@ -204,7 +203,10 @@ workflow {
     .set { split_dbsnp_into_smaller_chunks2 }
   split_rows_multiallelics(split_dbsnp_into_smaller_chunks2)
   split_rows_multiallelics.out.combine(generate_random_source_file.out).set { ch_random_selection }
-  select_random_snps(ch_random_selection, create_split_selection.out.size_chunk)
+  ch_random_selection
+    .join(extract_and_transform_hapmap_genotypes.out.size)
+    .set { joined_sizes }
+  select_random_snps(joined_sizes)
 
   // Join dbsnp and sim gwas stats
   simulate_gwas_stats_from_hapmap_genotypes.out
@@ -235,7 +237,7 @@ workflow {
   linear_to_concatenate
     .mix(logistic_to_concatenate)
     .set { to_concatenate }
-  to_concatenate.view()
+  to_concatenate
   concatenate_chunks(to_concatenate)
 
 }
